@@ -164,16 +164,18 @@
       white-space: nowrap;
     }
 
-    /* الختم الحي القابل للسحب وتغيير الحجم */
+    /* الختم الحي القابل للسحب وتغيير الحجم - ثابت عرضياً في سطر واحد */
     .watermark-overlay {
       position: absolute;
       bottom: calc(105px + env(safe-area-inset-bottom));
       left: 50%;
       transform: translateX(-50%) scale(1);
-      transform-origin: center bottom;
+      transform-origin: center center;
       display: flex;
       flex-direction: column;
       align-items: center;
+      width: max-content;
+      max-width: none;
       z-index: 25;
       text-align: center;
       cursor: grab;
@@ -201,6 +203,7 @@
       font-size: 2.1rem;
       font-weight: 500;
       letter-spacing: 1px;
+      white-space: nowrap;
       background: linear-gradient(180deg, #fce186 0%, #db9a1a 50%, #b37812 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -214,6 +217,7 @@
       font-size: 1.05rem;
       font-weight: 400;
       letter-spacing: 4px;
+      white-space: nowrap;
       color: #ffffff; 
       text-shadow: 0 4px 6px rgba(0, 0, 0, 0.9);
       pointer-events: none;
@@ -223,6 +227,7 @@
       font-family: 'Cairo', sans-serif;
       font-size: 0.85rem;
       font-weight: 700;
+      white-space: nowrap;
       color: #fce186;
       background: rgba(0, 0, 0, 0.55);
       padding: 2px 10px;
@@ -387,7 +392,7 @@
       <video id="video" class="filter-none" autoplay playsinline muted></video>
       <img id="previewImg" class="filter-none" alt="المعاينة">
 
-      <!-- الختم الحي (قابل للسحب بالإصبع) -->
+      <!-- الختم الحي (قابل للسحب بالإصبع وثابت عرضياً) -->
       <div class="watermark-overlay" id="liveWatermark">
         <svg class="logo-svg" viewBox="0 0 200 200">
           <defs>
@@ -477,11 +482,10 @@
     let finalBlob = null;
     let finalDataUrl = "";
 
-    // إعدادات الميزات الإضافية للمفروشات
     let stampScale = 1.0;
-    let stampNormX = 0.5;  // النسبة الأفقية لموضع الختم (0.5 = المنتصف)
-    let stampNormY = 0.84; // النسبة العمودية لموضع الختم (أسفل الصورة)
-    let posPresetIndex = 0; // 0: منتصف، 1: يمين، 2: يسار
+    let stampNormX = 0.5;
+    let stampNormY = 0.84;
+    let posPresetIndex = 0;
     let customCaption = "";
 
     const filters = [
@@ -499,7 +503,6 @@
       badge._timer = setTimeout(() => { badge.style.opacity = '0'; }, 1800);
     }
 
-    // تبديل شبكة الاستقامة
     function toggleGrid() {
       const grid = document.getElementById('gridOverlay');
       const btn = document.getElementById('gridBtn');
@@ -509,7 +512,6 @@
       showStatus(!isVisible ? 'تم تفعيل شبكة استقامة الأثاث' : 'تم إخفاء الشبكة');
     }
 
-    // تبديل فلاتر المفروشات
     function cycleFilter() {
       currentFilterIdx = (currentFilterIdx + 1) % filters.length;
       const f = filters[currentFilterIdx];
@@ -519,7 +521,6 @@
       showStatus(`الفلتر: ${f.name}`);
     }
 
-    // تغيير موضع الختم بلمسة (منتصف / يمين / يسار)
     function cycleStampPosition() {
       posPresetIndex = (posPresetIndex + 1) % 3;
       if (posPresetIndex === 0) {
@@ -527,18 +528,17 @@
         stampNormY = 0.84;
         showStatus('موضع الختم: أسفل المنتصف');
       } else if (posPresetIndex === 1) {
-        stampNormX = 0.78;
+        stampNormX = 0.76;
         stampNormY = 0.84;
         showStatus('موضع الختم: أسفل اليمين');
       } else {
-        stampNormX = 0.22;
+        stampNormX = 0.24;
         stampNormY = 0.84;
         showStatus('موضع الختم: أسفل اليسار');
       }
       applyWatermarkTransform();
     }
 
-    // تكبير وتصغير الختم
     function changeStampScale(delta) {
       stampScale = Math.min(1.7, Math.max(0.55, +(stampScale + delta).toFixed(2)));
       applyWatermarkTransform();
@@ -554,7 +554,6 @@
       watermarkEl.style.transform = `translate(-50%, -50%) scale(${stampScale})`;
     }
 
-    // سحب الختم بالإصبع بحرية على الشاشة (متوافق مع Touch في iOS و Android)
     let isDragging = false;
     watermarkEl.addEventListener('pointerdown', (e) => {
       isDragging = true;
@@ -574,7 +573,6 @@
       watermarkEl.releasePointerCapture(e.pointerId);
     });
 
-    // نافذة إضافة وصف الموديل أو السعر
     function openCaptionModal() {
       document.getElementById('captionInput').value = customCaption;
       document.getElementById('captionModal').style.display = 'flex';
@@ -594,7 +592,6 @@
       closeCaptionModal();
     }
 
-    // تشغيل الكاميرا بتوافق كامل مع iOS Safari
     async function startCamera() {
       camPrompt.style.display = 'none';
       if (localStream) {
@@ -613,7 +610,7 @@
         });
 
         video.srcObject = localStream;
-                video.setAttribute('playsinline', '');
+        video.setAttribute('playsinline', '');
         video.setAttribute('muted', '');
         video.muted = true;
         await video.play();
@@ -621,7 +618,7 @@
         video.style.display = 'block';
         previewImg.style.display = 'none';
         document.getElementById('switchCamBtn').style.display = 'flex';
-        document.getElementById('backToCamBtn').style.display = 'none';
+                document.getElementById('backToCamBtn').style.display = 'none';
         applyWatermarkTransform();
       } catch (err) {
         camPrompt.style.display = 'flex';
@@ -759,7 +756,6 @@
       canvas.width = w;
       canvas.height = h;
 
-      // تطبيق فلتر إضاءة المفروشات المختار على الصورة المحفوظة
       ctx.save();
       if (ctx.filter !== undefined) {
         ctx.filter = filters[currentFilterIdx].canvasFilter;
@@ -767,16 +763,13 @@
       ctx.drawImage(source, 0, 0, w, h);
       ctx.restore();
 
-      // حساب مقياس الختم بناءً على أبعاد الصورة الفعلية + تكبير/تصغير المستخدم
       const minDim = Math.min(w, h);
       const baseS = Math.min(minDim / 950, h / 650);
       const s = baseS * stampScale;
 
-      // حساب مركز الختم بدقة بناءً على المكان الذي سحبه أو اختاره المستخدم
       let cx = w * stampNormX;
       let cy = h * stampNormY;
 
-      // منع خروج الختم خارج حدود الصورة مهما كان مقاسها
       const halfStampW = 190 * s;
       const halfStampH = 155 * s;
       cx = Math.min(w - halfStampW - 15, Math.max(halfStampW + 15, cx));
@@ -834,7 +827,6 @@
         ctx.letterSpacing = '0px'; 
       }
 
-      // طباعة الوصف الإضافي (إن وجد) بخلفية أنيقة أسفل الختم
       if (customCaption) {
         const capY = textEngY + (52 * s);
         const fontSize = Math.max(16, Math.round(32 * s));
