@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>كاميرا الختم الملكي | 3D ROYAL HOUSE</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=Montserrat:wght@300;400;500&family=Cairo:wght@600;700&display=swap" rel="stylesheet">
   
   <style>
     * {
@@ -26,90 +28,177 @@
       font-family: 'Reem Kufi', sans-serif;
     }
 
-    /* حاوية رئيسية تأخذ الارتفاع الفعلي الصافي للشاشة */
     #app-container {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
+      inset: 0;
+      width: 100%;
       height: 100%;
       overflow: hidden;
+      background: #000;
     }
 
-    /* منطقة الكاميرا تملأ كامل الحاوية */
     .viewport {
-      position: absolute;
-      top: 0;
-      left: 0;
+      position: relative;
       width: 100%;
       height: 100%;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      background: #000;
     }
 
-    video, #previewImg {
+    video {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transition: filter 0.25s ease;
     }
 
     #previewImg {
       display: none;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      transition: filter 0.25s ease;
     }
 
-    /* زر التبديل بالأعلى */
+    /* فلاتر إضاءة المفروشات */
+    .filter-none { filter: none; }
+    .filter-warm { filter: contrast(1.06) saturate(1.18) sepia(0.14) brightness(1.03); }
+    .filter-luxury { filter: contrast(1.14) saturate(1.1) brightness(1.04); }
+
+    /* شبكة استقامة الأثاث 3x3 */
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+      background-image: 
+        linear-gradient(to right, rgba(229, 179, 56, 0.35) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(229, 179, 56, 0.35) 1px, transparent 1px);
+      background-size: 33.333% 33.333%;
+    }
+
+    /* زر تفعيل الكاميرا اليدوي للآيفون */
+    #camPrompt {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 45;
+      padding: 20px;
+      text-align: center;
+    }
+    #camPrompt p {
+      color: #cbd5e1;
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.92rem;
+      max-width: 280px;
+    }
+
+    /* شريط الأدوات العلوي */
     .top-bar {
       position: absolute;
-      top: 15px;
-      right: 15px;
+      top: calc(12px + env(safe-area-inset-top));
+      right: 12px;
+      left: 12px;
       display: flex;
-      gap: 12px;
+      justify-content: space-between;
+      align-items: flex-start;
       z-index: 50;
+      pointer-events: none;
+    }
+
+    .tool-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: auto;
     }
 
     .circle-btn {
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
-      background: rgba(15, 23, 42, 0.7);
+      background: rgba(15, 23, 42, 0.78);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       color: #e5b338;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       cursor: pointer;
     }
+    .circle-btn.active {
+      background: rgba(229, 179, 56, 0.25);
+      border-color: #e5b338;
+    }
 
-    /* الختم يرتفع للأعلى ليبقى فوق الأزرار بوضوح */
-    .watermark-overlay {
+    /* شارة حالة الفلتر أو الموضع */
+    #statusBadge {
       position: absolute;
-      bottom: 110px;
+      top: calc(64px + env(safe-area-inset-top));
       left: 50%;
       transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(229, 179, 56, 0.4);
+      color: #fce186;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.78rem;
+      z-index: 40;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* الختم الحي القابل للسحب وتغيير الحجم */
+    .watermark-overlay {
+      position: absolute;
+      bottom: calc(105px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) scale(1);
+      transform-origin: center bottom;
       display: flex;
       flex-direction: column;
       align-items: center;
-      pointer-events: none;
-      z-index: 20;
+      z-index: 25;
       text-align: center;
-      width: 100%;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 6px 12px;
+      border-radius: 12px;
+    }
+    .watermark-overlay:active {
+      cursor: grabbing;
+      background: rgba(255, 255, 255, 0.06);
     }
 
     .logo-svg {
-      width: 95px;
-      height: 95px;
+      width: 86px;
+      height: 86px;
       filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6));
       margin-bottom: -10px;
+      pointer-events: none;
     }
 
     .brand-title {
       font-family: 'Reem Kufi', sans-serif;
-      font-size: 2.3rem;
+      font-size: 2.1rem;
       font-weight: 500;
       letter-spacing: 1px;
       background: linear-gradient(180deg, #fce186 0%, #db9a1a 50%, #b37812 100%);
@@ -117,35 +206,52 @@
       -webkit-text-fill-color: transparent;
       filter: drop-shadow(0px 3px 2px rgba(0,0,0,0.8));
       margin-bottom: -8px;
+      pointer-events: none;
     }
 
     .brand-sub {
       font-family: 'Montserrat', sans-serif;
-      font-size: 1.15rem;
+      font-size: 1.05rem;
       font-weight: 400;
       letter-spacing: 4px;
       color: #ffffff; 
       text-shadow: 0 4px 6px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
     }
 
-    /* شريط الأزرار مرتفع للأعلى لتجاوز شريط كروم */
+    .brand-caption {
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fce186;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 2px 10px;
+      border-radius: 6px;
+      margin-top: 4px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      display: none;
+      pointer-events: none;
+    }
+
+    /* شريط التحكم السفلي */
     .controls {
       position: absolute;
-      bottom: 25px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
       left: 0;
       width: 100%;
-      padding: 0 16px;
+      padding: 0 14px;
       display: flex;
-      gap: 12px;
+      gap: 10px;
       z-index: 50;
     }
 
     .action-btn {
       flex: 1;
-      padding: 14px 10px;
+      padding: 13px 10px;
       border-radius: 12px;
-      font-weight: 800;
-      font-size: 0.95rem;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
       border: none;
       cursor: pointer;
       display: flex;
@@ -155,10 +261,7 @@
       white-space: nowrap;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
-
-    .action-btn:active {
-      transform: scale(0.97);
-    }
+    .action-btn:active { transform: scale(0.97); }
 
     .btn-gold {
       background: linear-gradient(135deg, #e5b338, #b6821b);
@@ -172,24 +275,120 @@
       border: 1px solid #334155;
     }
 
-    canvas {
+    /* نافذة إدخال وصف الموديل أو السعر */
+    #captionModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 90;
       display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
+    .modal-card {
+      background: #181b22;
+      border: 1px solid rgba(229, 179, 56, 0.35);
+      border-radius: 14px;
+      padding: 20px;
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+      font-family: 'Cairo', sans-serif;
+    }
+    .modal-card h4 { color: #e5b338; margin-bottom: 10px; font-size: 1.05rem; }
+    .modal-card input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #fff;
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    /* نافذة عرض وحفظ النتيجة النهائية (iOS & Android) */
+    #resultModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(14px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+    }
+
+    .result-header { text-align: center; width: 100%; font-family: 'Cairo', sans-serif; }
+    .result-header h3 { color: #e5b338; font-size: 1.1rem; margin-bottom: 2px; }
+    .result-header p { color: #cbd5e1; font-size: 0.8rem; }
+
+    .result-img-wrap {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    #finalResultImg {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+      border: 1px solid rgba(229, 179, 56, 0.3);
+      -webkit-touch-callout: default;
+    }
+
+    .result-actions { width: 100%; display: flex; gap: 10px; }
+    canvas { display: none; }
   </style>
 </head>
 <body>
 
   <div id="app-container">
     <div class="viewport" id="viewport">
+      
+      <!-- شبكة استقامة المفروشات -->
+      <div class="grid-overlay" id="gridOverlay"></div>
+      <div id="statusBadge"></div>
+
+      <!-- شريط الأدوات العلوي -->
       <div class="top-bar">
-        <button class="circle-btn" onclick="switchCamera()">🔄</button>
+        <div class="tool-group">
+          <button class="circle-btn" id="switchCamBtn" onclick="switchCamera()" title="تبديل الكاميرا">🔄</button>
+          <button class="circle-btn" id="backToCamBtn" onclick="resumeCamera()" style="display:none;" title="العودة للكاميرا">📷</button>
+          <button class="circle-btn" id="gridBtn" onclick="toggleGrid()" title="شبكة الاستقامة">#</button>
+          <button class="circle-btn" id="filterBtn" onclick="cycleFilter()" title="إضاءة المفروشات">✨</button>
+        </div>
+
+        <div class="tool-group">
+          <button class="circle-btn" onclick="cycleStampPosition()" title="تغيير مكان الختم">📍</button>
+          <button class="circle-btn" onclick="changeStampScale(-0.15)" title="تصغير الختم">➖</button>
+          <button class="circle-btn" onclick="changeStampScale(0.15)" title="تكبير الختم">➕</button>
+          <button class="circle-btn" onclick="openCaptionModal()" title="إضافة اسم الموديل أو السعر">✏️</button>
+        </div>
       </div>
 
-      <video id="video" autoplay playsinline muted></video>
-      <img id="previewImg" alt="المعاينة">
+      <!-- رسالة تفعيل الكاميرا اليدوي للآيفون -->
+      <div id="camPrompt">
+        <p>اضغط على الزر أدناه لتشغيل كاميرا الهاتف والسماح بالوصول إليها</p>
+        <button class="action-btn btn-gold" style="flex:none; padding: 13px 26px;" onclick="startCamera()">
+          📷 تشغيل الكاميرا الآن
+        </button>
+      </div>
 
-      <!-- الختم الحي -->
-      <div class="watermark-overlay">
+      <video id="video" class="filter-none" autoplay playsinline muted></video>
+      <img id="previewImg" class="filter-none" alt="المعاينة">
+
+      <!-- الختم الحي (قابل للسحب بالإصبع) -->
+      <div class="watermark-overlay" id="liveWatermark">
         <svg class="logo-svg" viewBox="0 0 200 200">
           <defs>
             <linearGradient id="gold3D" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -211,6 +410,7 @@
         
         <div class="brand-title">البيت الملكي</div>
         <div class="brand-sub">ROYAL HOUSE</div>
+        <div class="brand-caption" id="liveCaptionText"></div>
       </div>
     </div>
 
@@ -221,18 +421,45 @@
       <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="loadGalleryImage(event)">
 
       <button class="action-btn btn-gold" onclick="captureAndStamp()">
-        📥 حفظ الصورة مع الختم
+        📸 تصوير وحفظ مع الختم
       </button>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة وصف الموديل أو السعر -->
+  <div id="captionModal">
+    <div class="modal-card">
+      <h4>إضافة وصف أسفل الختم (اختياري)</h4>
+      <input type="text" id="captionInput" placeholder="مثلاً: طقم ملكي 7 مقاعد - للتواصل 09...">
+      <div style="display:flex; gap:8px;">
+        <button class="action-btn btn-dark" onclick="closeCaptionModal()">إلغاء</button>
+        <button class="action-btn btn-gold" onclick="saveCaption()">تطبيق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة عرض وحفظ الصورة النهائية -->
+  <div id="resultModal">
+    <div class="result-header">
+      <h3>تم دمج الختم الملكي بنجاح ✨</h3>
+      <p>اضغط على "حفظ / مشاركة" أو اضغط مطوّلاً على الصورة لحفظها في الاستوديو</p>
+    </div>
+
+    <div class="result-img-wrap">
+      <img id="finalResultImg" alt="الصورة المختومة">
+    </div>
+
+    <div class="result-actions">
+      <button class="action-btn btn-dark" onclick="closeResultModal()">↩️ رجوع</button>
+      <button class="action-btn btn-gold" onclick="shareOrDownloadResult()">💾 حفظ / مشاركة الصورة</button>
     </div>
   </div>
 
   <canvas id="canvas"></canvas>
 
   <script>
-    // ضبط الارتفاع الفعلي بدقة وتفادي أشرطة متصفح كروم
     function setAppHeight() {
-      const vh = window.innerHeight;
-      document.getElementById('app-container').style.height = `${vh}px`;
+      document.getElementById('app-container').style.height = `${window.innerHeight}px`;
     }
     window.addEventListener('resize', setAppHeight);
     window.addEventListener('orientationchange', setAppHeight);
@@ -241,27 +468,163 @@
     const video = document.getElementById('video');
     const previewImg = document.getElementById('previewImg');
     const canvas = document.getElementById('canvas');
+    const camPrompt = document.getElementById('camPrompt');
+    const watermarkEl = document.getElementById('liveWatermark');
+    const viewport = document.getElementById('viewport');
+
     let currentFacingMode = 'environment';
     let localStream = null;
+    let finalBlob = null;
+    let finalDataUrl = "";
 
+    // إعدادات الميزات الإضافية للمفروشات
+    let stampScale = 1.0;
+    let stampNormX = 0.5;  // النسبة الأفقية لموضع الختم (0.5 = المنتصف)
+    let stampNormY = 0.84; // النسبة العمودية لموضع الختم (أسفل الصورة)
+    let posPresetIndex = 0; // 0: منتصف، 1: يمين، 2: يسار
+    let customCaption = "";
+
+    const filters = [
+      { id: 'none', name: 'إضاءة طبيعية', cssClass: 'filter-none', canvasFilter: 'none' },
+      { id: 'warm', name: 'دفء الخشب والأقمشة ✨', cssClass: 'filter-warm', canvasFilter: 'contrast(106%) saturate(118%) sepia(14%) brightness(103%)' },
+      { id: 'luxury', name: 'تباين فخم 👑', cssClass: 'filter-luxury', canvasFilter: 'contrast(114%) saturate(110%) brightness(104%)' }
+    ];
+    let currentFilterIdx = 0;
+
+    function showStatus(msg) {
+      const badge = document.getElementById('statusBadge');
+      badge.innerText = msg;
+      badge.style.opacity = '1';
+      clearTimeout(badge._timer);
+      badge._timer = setTimeout(() => { badge.style.opacity = '0'; }, 1800);
+    }
+
+    // تبديل شبكة الاستقامة
+    function toggleGrid() {
+      const grid = document.getElementById('gridOverlay');
+      const btn = document.getElementById('gridBtn');
+      const isVisible = grid.style.display === 'block';
+      grid.style.display = isVisible ? 'none' : 'block';
+      btn.classList.toggle('active', !isVisible);
+      showStatus(!isVisible ? 'تم تفعيل شبكة استقامة الأثاث' : 'تم إخفاء الشبكة');
+    }
+
+    // تبديل فلاتر المفروشات
+    function cycleFilter() {
+      currentFilterIdx = (currentFilterIdx + 1) % filters.length;
+      const f = filters[currentFilterIdx];
+      video.className = f.cssClass;
+      previewImg.className = f.cssClass;
+      document.getElementById('filterBtn').classList.toggle('active', currentFilterIdx !== 0);
+      showStatus(`الفلتر: ${f.name}`);
+    }
+
+    // تغيير موضع الختم بلمسة (منتصف / يمين / يسار)
+    function cycleStampPosition() {
+      posPresetIndex = (posPresetIndex + 1) % 3;
+      if (posPresetIndex === 0) {
+        stampNormX = 0.5;
+        stampNormY = 0.84;
+        showStatus('موضع الختم: أسفل المنتصف');
+      } else if (posPresetIndex === 1) {
+        stampNormX = 0.78;
+        stampNormY = 0.84;
+        showStatus('موضع الختم: أسفل اليمين');
+      } else {
+        stampNormX = 0.22;
+        stampNormY = 0.84;
+        showStatus('موضع الختم: أسفل اليسار');
+      }
+      applyWatermarkTransform();
+    }
+
+    // تكبير وتصغير الختم
+    function changeStampScale(delta) {
+      stampScale = Math.min(1.7, Math.max(0.55, +(stampScale + delta).toFixed(2)));
+      applyWatermarkTransform();
+      showStatus(`حجم الختم: ${Math.round(stampScale * 100)}%`);
+    }
+
+    function applyWatermarkTransform() {
+      const vw = viewport.clientWidth;
+      const vh = viewport.clientHeight;
+      watermarkEl.style.left = `${stampNormX * vw}px`;
+      watermarkEl.style.top = `${stampNormY * vh}px`;
+      watermarkEl.style.bottom = 'auto';
+      watermarkEl.style.transform = `translate(-50%, -50%) scale(${stampScale})`;
+    }
+
+    // سحب الختم بالإصبع بحرية على الشاشة (متوافق مع Touch في iOS و Android)
+    let isDragging = false;
+    watermarkEl.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      watermarkEl.setPointerCapture(e.pointerId);
+    });
+    watermarkEl.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const rect = viewport.getBoundingClientRect();
+      const x = Math.min(rect.width - 40, Math.max(40, e.clientX - rect.left));
+      const y = Math.min(rect.height - 95, Math.max(70, e.clientY - rect.top));
+      stampNormX = x / rect.width;
+      stampNormY = y / rect.height;
+      applyWatermarkTransform();
+    });
+    watermarkEl.addEventListener('pointerup', (e) => {
+      isDragging = false;
+      watermarkEl.releasePointerCapture(e.pointerId);
+    });
+
+    // نافذة إضافة وصف الموديل أو السعر
+    function openCaptionModal() {
+      document.getElementById('captionInput').value = customCaption;
+      document.getElementById('captionModal').style.display = 'flex';
+    }
+    function closeCaptionModal() {
+      document.getElementById('captionModal').style.display = 'none';
+    }
+    function saveCaption() {
+      customCaption = document.getElementById('captionInput').value.trim();
+      const capEl = document.getElementById('liveCaptionText');
+      if (customCaption) {
+        capEl.innerText = customCaption;
+        capEl.style.display = 'block';
+      } else {
+        capEl.style.display = 'none';
+      }
+      closeCaptionModal();
+    }
+
+    // تشغيل الكاميرا بتوافق كامل مع iOS Safari
     async function startCamera() {
+      camPrompt.style.display = 'none';
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("يرجى فتح الرابط من متصفح Safari الأساسي لتشغيل الكاميرا.");
+        return;
+      }
+
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: currentFacingMode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
+          video: { facingMode: { ideal: currentFacingMode } },
           audio: false
         });
+
         video.srcObject = localStream;
+                video.setAttribute('playsinline', '');
+        video.setAttribute('muted', '');
+        video.muted = true;
+        await video.play();
+
         video.style.display = 'block';
         previewImg.style.display = 'none';
+        document.getElementById('switchCamBtn').style.display = 'flex';
+        document.getElementById('backToCamBtn').style.display = 'none';
+        applyWatermarkTransform();
       } catch (err) {
-        console.warn("الكاميرا غير متاحة:", err);
+        camPrompt.style.display = 'flex';
       }
     }
 
@@ -270,19 +633,32 @@
       startCamera();
     }
 
-    startCamera();
+    function resumeCamera() {
+      document.getElementById('fileInput').value = "";
+      startCamera();
+    }
+
+    window.addEventListener('load', () => {
+      applyWatermarkTransform();
+      startCamera();
+    });
 
     function loadGalleryImage(e) {
       const file = e.target.files[0];
       if (!file) return;
+      camPrompt.style.display = 'none';
       const reader = new FileReader();
       reader.onload = (event) => {
+        previewImg.onload = () => {
+          previewImg.style.display = 'block';
+          video.style.display = 'none';
+          document.getElementById('switchCamBtn').style.display = 'none';
+          document.getElementById('backToCamBtn').style.display = 'flex';
+          if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+          }
+        };
         previewImg.src = event.target.result;
-        previewImg.style.display = 'block';
-        video.style.display = 'none';
-        if (localStream) {
-          localStream.getTracks().forEach(t => t.stop());
-        }
       };
       reader.readAsDataURL(file);
     }
@@ -366,86 +742,159 @@
       ctx.restore();
     }
 
-    function captureAndStamp() {
-      document.fonts.ready.then(() => {
-        const ctx = canvas.getContext('2d');
-        const isGallery = previewImg.style.display === 'block';
-        const source = isGallery ? previewImg : video;
+    async function captureAndStamp() {
+      await document.fonts.ready;
+      const ctx = canvas.getContext('2d');
+      const isGallery = previewImg.style.display === 'block';
+      const source = isGallery ? previewImg : video;
 
-        if (!isGallery && video.videoWidth === 0) {
-          alert("يرجى فتح الكاميرا أو اختيار صورة أولاً");
-          return;
+      if (!isGallery && (!video.videoWidth || video.videoWidth === 0)) {
+        camPrompt.style.display = 'flex';
+        return;
+      }
+
+      const w = isGallery ? previewImg.naturalWidth : video.videoWidth;
+      const h = isGallery ? previewImg.naturalHeight : video.videoHeight;
+
+      canvas.width = w;
+      canvas.height = h;
+
+      // تطبيق فلتر إضاءة المفروشات المختار على الصورة المحفوظة
+      ctx.save();
+      if (ctx.filter !== undefined) {
+        ctx.filter = filters[currentFilterIdx].canvasFilter;
+      }
+      ctx.drawImage(source, 0, 0, w, h);
+      ctx.restore();
+
+      // حساب مقياس الختم بناءً على أبعاد الصورة الفعلية + تكبير/تصغير المستخدم
+      const minDim = Math.min(w, h);
+      const baseS = Math.min(minDim / 950, h / 650);
+      const s = baseS * stampScale;
+
+      // حساب مركز الختم بدقة بناءً على المكان الذي سحبه أو اختاره المستخدم
+      let cx = w * stampNormX;
+      let cy = h * stampNormY;
+
+      // منع خروج الختم خارج حدود الصورة مهما كان مقاسها
+      const halfStampW = 190 * s;
+      const halfStampH = 155 * s;
+      cx = Math.min(w - halfStampW - 15, Math.max(halfStampW + 15, cx));
+      cy = Math.min(h - halfStampH - 15, Math.max(halfStampH + 15, cy));
+
+      const startY = cy - (135 * s);
+
+      const roofApexY = startY;
+      const eaveY = startY + (70 * s);
+      const eaveX = 75 * s;
+      
+      const wallX = 45 * s;
+      const wallTopY = startY + (45 * s);
+      const wallBottomY = startY + (130 * s);
+      const vCutY = startY + (100 * s);
+
+      const drawRoof = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx - eaveX, eaveY);
+        ctx.lineTo(cx, roofApexY);
+        ctx.lineTo(cx + eaveX, eaveY);
+      };
+
+      const drawWalls = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx - wallX, wallTopY);
+        ctx.lineTo(cx - wallX, wallBottomY);
+        ctx.lineTo(cx, vCutY);
+        ctx.lineTo(cx + wallX, wallBottomY);
+        ctx.lineTo(cx + wallX, wallTopY);
+      };
+
+      const drawHeart = () => {
+        ctx.beginPath();
+        const hy = startY + 60 * s; 
+        ctx.moveTo(cx, hy + 15 * s);
+        ctx.bezierCurveTo(cx - 25 * s, hy - 15 * s, cx - 45 * s, hy + 15 * s, cx, hy + 50 * s);
+        ctx.bezierCurveTo(cx + 45 * s, hy + 15 * s, cx + 25 * s, hy - 15 * s, cx, hy + 15 * s);
+      };
+
+      const strokeW = 12 * s;
+      draw3DPath(ctx, drawRoof, strokeW, s, false, roofApexY, startY + 140 * s);
+      draw3DPath(ctx, drawWalls, strokeW, s, false, roofApexY, startY + 140 * s);
+      draw3DPath(ctx, drawHeart, strokeW * 0.85, s, true, 0, 0); 
+
+      const textArabicY = startY + (205 * s);
+      draw3DText(ctx, "البيت الملكي", cx, textArabicY, `500 ${82 * s}px 'Reem Kufi', sans-serif`, s, false, textArabicY - 40 * s, textArabicY + 40 * s);
+
+      const textEngY = startY + (275 * s);
+      if (ctx.letterSpacing !== undefined) {
+        ctx.letterSpacing = `${8 * s}px`;
+      }
+      draw3DText(ctx, "ROYAL HOUSE", cx, textEngY, `400 ${45 * s}px 'Montserrat', sans-serif`, s, true, 0, 0);
+      if (ctx.letterSpacing !== undefined) {
+        ctx.letterSpacing = '0px'; 
+      }
+
+      // طباعة الوصف الإضافي (إن وجد) بخلفية أنيقة أسفل الختم
+      if (customCaption) {
+        const capY = textEngY + (52 * s);
+        const fontSize = Math.max(16, Math.round(32 * s));
+        ctx.save();
+        ctx.font = `700 ${fontSize}px 'Cairo', sans-serif`;
+        const textMetrics = ctx.measureText(customCaption);
+        const padX = 22 * s;
+        const boxW = textMetrics.width + (padX * 2);
+        const boxH = fontSize * 1.65;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.beginPath();
+        ctx.roundRect(cx - boxW / 2, capY - boxH / 2, boxW, boxH, 10 * s);
+        ctx.fill();
+
+        ctx.fillStyle = '#fce186';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(customCaption, cx, capY);
+        ctx.restore();
+      }
+
+      finalDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      document.getElementById('finalResultImg').src = finalDataUrl;
+      document.getElementById('resultModal').style.display = 'flex';
+
+      canvas.toBlob((blob) => {
+        finalBlob = blob;
+      }, 'image/jpeg', 0.95);
+    }
+
+    async function shareOrDownloadResult() {
+      const fileName = `Royal_House_3D_${Date.now()}.jpg`;
+
+      if (finalBlob && navigator.canShare) {
+        const file = new File([finalBlob], fileName, { type: 'image/jpeg' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'البيت الملكي - Royal House'
+            });
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+          }
         }
+      }
 
-        const w = isGallery ? previewImg.naturalWidth : video.videoWidth;
-        const h = isGallery ? previewImg.naturalHeight : video.videoHeight;
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = finalDataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(source, 0, 0, w, h);
-
-        const s = Math.min(w, h) / 1000;
-        const cx = w / 2;
-        const startY = h - (350 * s); 
-
-        const roofApexY = startY;
-        const eaveY = startY + (70 * s);
-        const eaveX = 75 * s;
-        
-        const wallX = 45 * s;
-        const wallTopY = startY + (45 * s);
-        const wallBottomY = startY + (130 * s);
-        const vCutY = startY + (100 * s);
-
-        const drawRoof = () => {
-          ctx.beginPath();
-          ctx.moveTo(cx - eaveX, eaveY);
-          ctx.lineTo(cx, roofApexY);
-          ctx.lineTo(cx + eaveX, eaveY);
-        };
-
-        const drawWalls = () => {
-          ctx.beginPath();
-          ctx.moveTo(cx - wallX, wallTopY);
-          ctx.lineTo(cx - wallX, wallBottomY);
-          ctx.lineTo(cx, vCutY);
-          ctx.lineTo(cx + wallX, wallBottomY);
-          ctx.lineTo(cx + wallX, wallTopY);
-        };
-
-        const drawHeart = () => {
-          ctx.beginPath();
-          const hy = startY + 60 * s; 
-          ctx.moveTo(cx, hy + 15 * s);
-          ctx.bezierCurveTo(cx - 25 * s, hy - 15 * s, cx - 45 * s, hy + 15 * s, cx, hy + 50 * s);
-          ctx.bezierCurveTo(cx + 45 * s, hy + 15 * s, cx + 25 * s, hy - 15 * s, cx, hy + 15 * s);
-        };
-
-        const strokeW = 12 * s;
-        draw3DPath(ctx, drawRoof, strokeW, s, false, roofApexY, startY + 140 * s);
-        draw3DPath(ctx, drawWalls, strokeW, s, false, roofApexY, startY + 140 * s);
-        draw3DPath(ctx, drawHeart, strokeW * 0.85, s, true, 0, 0); 
-
-        const textArabicY = startY + (205 * s);
-        draw3DText(ctx, "البيت الملكي", cx, textArabicY, `500 ${82 * s}px 'Reem Kufi', sans-serif`, s, false, textArabicY - 40 * s, textArabicY + 40 * s);
-
-        const textEngY = startY + (275 * s);
-        if (ctx.letterSpacing !== undefined) {
-          ctx.letterSpacing = `${8 * s}px`;
-        }
-        draw3DText(ctx, "ROYAL HOUSE", cx, textEngY, `400 ${45 * s}px 'Montserrat', sans-serif`, s, true, 0, 0);
-        
-        if (ctx.letterSpacing !== undefined) {
-          ctx.letterSpacing = '0px'; 
-        }
-
-        const link = document.createElement('a');
-        link.download = `Royal_House_3D_${Date.now()}.jpg`;
-        link.href = canvas.toDataURL('image/jpeg', 1.0); 
-        link.click();
-      });
+    function closeResultModal() {
+      document.getElementById('resultModal').style.display = 'none';
     }
   </script>
 </body>
-  </html>
-  
+</html>
